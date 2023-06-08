@@ -1,5 +1,6 @@
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -17,9 +18,10 @@ public class MainManager : MonoBehaviour
     
     private bool m_Started = false;
     private int m_Points;
-    private int currentHighScore;
     
     private bool m_GameOver = false;
+
+    private HighScoreData highScoreData;
 
     
     // Start is called before the first frame update
@@ -40,9 +42,14 @@ public class MainManager : MonoBehaviour
             }
         }
 
-        SaveManager.Instance.LoadData();
-        currentHighScore = SaveManager.Instance.highScore;
-        txtSavedData.text = "Best Score: " + currentHighScore + " Name: " + SaveManager.Instance.highScorePlayerName;
+        Ball.gameObject.GetComponent<MeshRenderer>().material.color = SaveManager.Instance.selectedColor;
+
+        if (SaveManager.Instance.scores.scoreDatas.Length > 0)
+            highScoreData = SaveManager.Instance.scores.scoreDatas[0];
+        else
+            highScoreData = new HighScoreData() { score = 0, playerName = "" };
+
+        txtSavedData.text = "Best Score: " + highScoreData.score + " Name: " + highScoreData.playerName;
         currentPlayerName.text = "Name: " + SaveManager.Instance.playerName;
     }
 
@@ -65,6 +72,7 @@ public class MainManager : MonoBehaviour
         {
             if (Input.GetKeyDown(KeyCode.Space))
             {
+                SaveManager.Instance.Reload(highScoreData.playerName);
                 SceneManager.LoadScene(SceneManager.GetActiveScene().buildIndex);
             }
         }
@@ -75,16 +83,22 @@ public class MainManager : MonoBehaviour
         m_Points += point;
         ScoreText.text = $"Score : {m_Points}";
 
-        if (m_Points > currentHighScore)
-            txtSavedData.text = "Best Score: " + m_Points + " Name: " + currentPlayerName.text;
+        if (m_Points > highScoreData.score)
+            txtSavedData.text = "Best Score: " + m_Points + " Name: " + highScoreData.playerName;
     }
 
     public void GameOver()
     {
-        if (m_Points > SaveManager.Instance.highScore)
+        if (m_Points > highScoreData.score)
         {
-            SaveManager.Instance.highScore = m_Points;
-            SaveManager.Instance.SaveData();
+            List<HighScoreData> scoreDatas = SaveManager.Instance.scores.scoreDatas.ToList();
+            scoreDatas.Add(new HighScoreData()
+            {
+                score = m_Points,
+                playerName = SaveManager.Instance.playerName
+            });
+            SaveManager.Instance.scores.scoreDatas = scoreDatas.ToArray();
+            SaveManager.Instance.SaveData(SaveManager.Instance.scores);
         }
 
         m_GameOver = true;

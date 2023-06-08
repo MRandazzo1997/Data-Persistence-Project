@@ -2,6 +2,7 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using UnityEngine.UI;
@@ -9,13 +10,10 @@ using UnityEngine.UI;
 public class SaveManager : MonoBehaviour
 {
     public static SaveManager Instance { get; private set; }
-    public InputField ifPlayerName;
-    public Color selectedColor;
+    public Color selectedColor = Color.black;
+    public Scores scores;
 
     public string playerName;
-    public string highScorePlayerName;
-    public string pathScores;
-    public int highScore;
 
     private void Awake()
     {
@@ -25,28 +23,13 @@ public class SaveManager : MonoBehaviour
             Instance = this;
 
         DontDestroyOnLoad(gameObject);
-        pathScores = Application.persistentDataPath + "/highScores.json";
-    }
 
-    public void OnStartPressed()
-    {
-        if (playerName != "")
-            SceneManager.LoadScene(1);
-    }
+        selectedColor = LoadData<ColorData>().color;
+        scores = LoadData<Scores>();
+        scores.Sort();
 
-    public void GetPlayerName()
-    {
-        playerName = ifPlayerName.text;
-    }
-
-    public void SaveData()
-    {
-        HighScoreData highScoreData = new HighScoreData();
-        highScoreData.playerName = playerName;
-        highScoreData.score = highScore;
-
-        string json = JsonUtility.ToJson(highScoreData);
-        File.WriteAllText(pathScores, json);
+        if (scores.scoreDatas.Length <= 0)
+            Debug.Log("No scores available");
     }
 
     public void SaveData(object obj)
@@ -56,40 +39,52 @@ public class SaveManager : MonoBehaviour
         File.WriteAllText(savePath, json);
     }
 
-    public void LoadData()
+    public T LoadData<T>() where T : new()
     {
-        if (File.Exists(pathScores))
-        {
-            string json = File.ReadAllText(Application.persistentDataPath + "/highScores.json");
-            HighScoreData highScoreData = JsonUtility.FromJson<HighScoreData>(json);
-
-            highScore = highScoreData.score;
-            highScorePlayerName = highScoreData.playerName;
-        }
-    }
-
-    public void LoadData(object obj)
-    {
-        string loadingPath = Application.persistentDataPath + "/" + obj.GetType().Name + ".json";
+        T data = new T();
+        string loadingPath = Application.persistentDataPath + "/" + data.GetType().Name + ".json";
         if (File.Exists(loadingPath))
         {
             string json = File.ReadAllText(loadingPath);
-            var data = JsonUtility.FromJson<object>(json);
+            data = JsonUtility.FromJson<T>(json);
         }
-    }
-
-    [System.Serializable]
-    public class HighScoreData
-    {
-        public string playerName;
-        public int score;
-    }
-
+        return data;
+    } 
     
+    public void Reload(string playerName = "")
+    {
+        selectedColor = LoadData<ColorData>().color;
+        scores = LoadData<Scores>();
+        scores.Sort();
+        this.playerName = playerName;
+    }
 }
 
 [System.Serializable]
 public class ColorData
 {
     public Color color;
+}
+
+[System.Serializable]
+public class HighScoreData
+{
+    public string playerName;
+    public int score;
+}
+
+[System.Serializable]
+public class Scores
+{
+    public HighScoreData[] scoreDatas;
+
+    public void Sort()
+    {
+        if (scoreDatas != null && scoreDatas.Length > 1)
+            scoreDatas = scoreDatas.ToList().OrderByDescending(s => s.score).ToArray();
+        else
+        {
+            scoreDatas = new HighScoreData[0];
+        }
+    }
 }
